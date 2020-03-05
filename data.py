@@ -42,14 +42,12 @@ class CIFAR10C(datasets.CIFAR10):
     def __getitem__(self, index):
         img, target = self.data[index], self.targets[index]
 
-        # doing this so that it is consistent with all other datasets
-        # to return a PIL Image
-        xi = Image.fromarray(img)
-        xj = Image.fromarray(img)
+        # return a PIL Image
+        img = Image.fromarray(img)
 
         if self.transform is not None:
-            xi = self.transform(xi)
-            xj = self.transform(xj)
+            xi = self.transform(img)
+            xj = self.transform(img)
 
         if self.target_transform is not None:
             target = self.target_transform(target)
@@ -58,7 +56,7 @@ class CIFAR10C(datasets.CIFAR10):
 
 
 class Loader(object):
-    def __init__(self, dataset_ident, file_path, download, batch_size, data_transform, target_transform, use_cuda):
+    def __init__(self, dataset_ident, file_path, download, batch_size, train_transform, test_transform, target_transform, use_cuda):
 
         kwargs = {'num_workers': 4, 'pin_memory': True} if use_cuda else {}
 
@@ -72,7 +70,7 @@ class Loader(object):
 
         # Get the datasets
         train_dataset, test_dataset = self.get_dataset(loader_map[dataset_ident], file_path, download,
-                                                       data_transform, target_transform)
+                                                       train_transform, test_transform, target_transform)
         # Set the loaders
         self.train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, **kwargs)
         self.test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, **kwargs)
@@ -82,23 +80,15 @@ class Loader(object):
         self.num_class = num_class[dataset_ident]
 
     @staticmethod
-    def get_dataset(dataset, file_path, download, data_transform, target_transform):
-
-        # Check for transform to be None, a single item, or a list
-        # None -> default to transform_list = [transforms.ToTensor()]
-        # single item -> list
-        if not data_transform:
-            data_transform = [transforms.ToTensor()]
-        elif not isinstance(data_transform, list):
-            data_transform = list(data_transform)
+    def get_dataset(dataset, file_path, download, train_transform, test_transform, target_transform):
 
         # Training and Validation datasets
         train_dataset = dataset(file_path, train=True, download=download,
-                                transform=transforms.Compose(data_transform),
+                                transform=train_transform,
                                 target_transform=target_transform)
 
         test_dataset = dataset(file_path, train=False, download=download,
-                               transform=transforms.Compose(data_transform),
+                               transform=test_transform,
                                target_transform=target_transform)
 
         return train_dataset, test_dataset
