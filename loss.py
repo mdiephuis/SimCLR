@@ -3,8 +3,9 @@ import torch.nn as nn
 
 
 class contrastive_loss(nn.Module):
-    def __init__(self, tau=1):
+    def __init__(self, tau=1, use_cuda):
         self.tau = tau
+        self.use_cuda = use_cuda
 
     def forwrad(self, x):
         b_sz = x.size(0) // 2
@@ -19,8 +20,8 @@ class contrastive_loss(nn.Module):
         diag_ind = torch.eye(b_sz * 2).bool()
         sim_mat = sim_mat.masked_fill_(diag_ind, 0)
 
-        loss_nom = torch.zeros(b_sz)
-        loss_denom = torch.zeros(b_sz)
+        loss_nom = torch.zeros(b_sz).cuda() if self.use_cuda else torch.zeros(b_sz)
+        loss_denom = torch.zeros(b_sz).cuda() if self.use_cuda else torch.zeros(b_sz)
 
         for i in range(b_sz):
             loss_nom[i] = sim_mat[i][i + b_sz]
