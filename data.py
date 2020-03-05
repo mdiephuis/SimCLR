@@ -15,28 +15,22 @@ class GaussianSmoothing(object):
         return image.filter(ImageFilter.GaussianBlur(self.radius))
 
 
-def color_distortion_transform(s=1.0):
-    # s is the strength of color distortion.
-    color_jitter = transforms.ColorJitter(0.8 * s, 0.8 * s, 0.8 * s, 0.2 * s)
-    rnd_color_jitter = transforms.RandomApply([color_jitter], p=0.8)
-    rnd_gray = transforms.RandomGrayscale(p=0.2)
-    color_distort = transforms.Compose([
-        rnd_color_jitter,
-        rnd_gray])
-    return color_distort
-
-
-def get_transforms():
-    jitter_transform = color_distortion_transform()
-
+def cifar_train_transforms():
     all_transforms = transforms.Compose([
-        # transforms.ToPILImage(),
-        transforms.Resize((224, 224)),
-        # transforms.RandomResizedCrop((224, 224)),
-        transforms.RandomHorizontalFlip(p=0.6),
-        jitter_transform,
-        GaussianSmoothing(1),
-        transforms.ToTensor()
+        transforms.RandomResizedCrop(32),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
+        transforms.RandomGrayscale(p=0.2),
+        transforms.ToTensor(),
+        transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010])
+    ])
+    return all_transforms
+
+
+def cifar_test_transforms():
+    all_transforms = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize([0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010])
     ])
     return all_transforms
 
@@ -44,7 +38,6 @@ def get_transforms():
 class CIFAR10C(datasets.CIFAR10):
     def __init__(self, *args, **kwargs):
         super(CIFAR10C, self).__init__(*args, **kwargs)
-        self.transform = get_transforms()
 
     def __getitem__(self, index):
         img, target = self.data[index], self.targets[index]
