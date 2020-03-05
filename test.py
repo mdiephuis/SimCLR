@@ -28,8 +28,14 @@ loader = Loader('CIFAR10C', 'data', True, 32, None, None, use_cuda)
 train_loader = loader.train_loader
 test_loader = loader.test_loader
 
-model = resnet50()
+model = resnet50().type(dtype)
 
 xi, xj, _ = next(iter(test_loader))
+
+print(xi.size())
+print(xj.size())
+
+xi = xi.cuda() if use_cuda else xi
+xj = xj.cuda() if use_cuda else xj
 
 hi = model(xi)
