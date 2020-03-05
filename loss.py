@@ -7,7 +7,7 @@ class contrastive_loss(nn.Module):
         self.tau = tau
         self.use_cuda = use_cuda
 
-    def forwrad(self, x):
+    def forward(self, x):
         b_sz = x.size(0) // 2
 
         sim_mat_nom = torch.mm(x, x.T)

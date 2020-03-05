@@ -13,8 +13,8 @@ parser = argparse.ArgumentParser(description='SIMCLR')
 
 parser.add_argument('--uid', type=str, default='SimCLR',
                     help='Staging identifier (default: SimCLR)')
-parser.add_argument('--dataset-name', type=str, default='CIFAR10',
-                    help='Name of dataset (default: CIFAR10')
+parser.add_argument('--dataset-name', type=str, default='CIFAR10C',
+                    help='Name of dataset (default: CIFAR10C')
 parser.add_argument('--data-dir', type=str, default='data',
                     help='Path to dataset (default: data')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
@@ -54,13 +54,15 @@ else:
     device = torch.device("cpu")
 
 
-if args.dataset_name == 'CIFAR10':
+if args.dataset_name == 'CIFAR10C':
     in_channels = 3
     loader = Loader('CIFAR10C', 'data', True, 32, None, None, use_cuda)
 
 
 # model definition
 model = resnet50().type(dtype)
+
+
 
 # train validate
 
