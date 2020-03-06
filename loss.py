@@ -11,6 +11,7 @@ class contrastive_loss(nn.Module):
 
         x = torch.cat((xi, xj), dim=0)
 
+        is_cuda = x.is_cuda
         sim_mat_nom = torch.mm(x, x.T)
         sim_mat_denom = torch.mm(torch.norm(x, dim=1).unsqueeze(1), torch.norm(x, dim=1).unsqueeze(1).T)
         sim_mat = sim_mat_nom / sim_mat_denom.clamp(min=1e-16)
@@ -27,6 +28,8 @@ class contrastive_loss(nn.Module):
         sim_match = torch.exp(torch.sum(xi * xj, dim=-1) / sim_mat_denom / self.tau)
         sim_match = torch.cat((sim_match, sim_match), dim=0)
 
-        loss = torch.mean(-torch.log(sim_match / (torch.sum(sim_mat, dim=-1) - torch.exp(torch.ones(x.size(0)) / self.tau))))
+        norm_sum = torch.exp(torch.ones(x.size(0)) / self.tau)
+        norm_sum = norm_sum.cuda() if is_cuda else norm_sum
+        loss = torch.mean(-torch.log(sim_match / (torch.sum(sim_mat, dim=-1) - norm_sum)))
 
         return loss
