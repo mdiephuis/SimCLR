@@ -58,6 +58,12 @@ else:
 use_tb = args.log_dir is not None
 log_dir = args.log_dir
 
+# Setup asset directories
+if not os.path.exists('models'):
+    os.makedirs('models')
+
+if not os.path.exists('runs'):
+    os.makedirs('runs')
 
 # Logger
 if use_tb:
