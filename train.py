@@ -6,6 +6,7 @@ import numpy as np
 
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
+import os
 
 
 from models import *
@@ -25,19 +26,20 @@ parser.add_argument('--feature-size', type=int, default=128,
                     help='Feature output size (default: 128')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input training batch-size')
-parser.add_argument('--epochs', type=int, default=15, metavar='N',
-                    help='number of training epochs (default: 15)')
+parser.add_argument('--epochs', type=int, default=150, metavar='N',
+                    help='number of training epochs (default: 150)')
 parser.add_argument('--lr', type=float, default=1e-3,
                     help='learning rate (default: 1e-3')
 parser.add_argument("--decay-lr", default=0.75, action="store", type=float,
                     help='Learning rate decay (default: 0.75')
 parser.add_argument('--tau', default=0.5, type=float,
                     help='Tau temperature smoothing (default 0.5)')
-
 parser.add_argument('--log-dir', type=str, default='runs',
                     help='logging directory (default: runs)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables cuda (default: False')
+parser.add_argument('--load-model', type=str, default=None,
+                    help='Load model to resume training for (default None)')
 
 args = parser.parse_args()
 
@@ -56,10 +58,10 @@ else:
 use_tb = args.log_dir is not None
 log_dir = args.log_dir
 
+
 # Logger
 if use_tb:
     logger = SummaryWriter(comment='_' + args.uid + '_' + args.dataset_name)
-
 
 if args.dataset_name == 'CIFAR10C':
     in_channels = 3
@@ -136,6 +138,20 @@ schedular = ExponentialLR(optimizer, gamma=args.decay_lr)
 
 # Main training loop
 best_loss = np.inf
+
+# Resume training
+if args.load_model is not None:
+    if os.path.isfile(args.load_model):
+        checkpoint = torch.load(args.load_model)
+        model.load_state_dict(checkpoint['model'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        schedular.load_state_dict(checkpoint['schedular'])
+        best_loss = checkpoint['val_loss']
+        epoch = checkpoint['epoch']
+        print('Loading model: {}. Resuming from epoch: {}'.format(args.load_model, epoch))
+    else:
+        print('Model: {} not found'.format(args.load_model))
+
 for epoch in range(args.epochs):
     v_loss = execute_graph(model, loader, optimizer, schedular, epoch, use_cuda)
 
@@ -144,10 +160,12 @@ for epoch in range(args.epochs):
         print('Writing model checkpoint')
         state = {
             'epoch': epoch,
-            'state_dict': model.state_dict(),
+            'model': model.state_dict(),
+            'optimizer': optimizer.state_dict(),
+            'schedular': schedular.state_dict(),
             'val_loss': v_loss
         }
-        file_name = 'models/{}_{:04.4f}.pt'.format(args.uid, v_loss)
+        file_name = 'models/{}_{}_{:04.4f}.pt'.format(args.uid, epoch, v_loss)
 
         torch.save(state, file_name)
 
