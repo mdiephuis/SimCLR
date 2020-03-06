@@ -4,7 +4,7 @@ from torch.hub import load_state_dict_from_url
 import torch.nn.functional as F
 
 
-__all__ = ['ResNet', 'resnet18', 'resnet50']
+__all__ = ['ResNet', 'resnet18', 'resnet50', 'resnet50_cifar', 'resnet18_cifar']
 
 
 model_urls = {
@@ -263,7 +263,7 @@ class BasicBlock_CIFAR(nn.Module):
 
 class ResNet_CIFAR(nn.Module):
 
-    def __init__(self, block, layers, num_classes=10):
+    def __init__(self, block, layers, num_features=128):
         super(ResNet_CIFAR, self).__init__()
         self.in_planes = 64
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
@@ -276,7 +276,7 @@ class ResNet_CIFAR(nn.Module):
             self._make_layer(block, 512, layers[2], stride=2)
         )
 
-        self.linear = nn.Linear(512 * block.expansion, num_classes)
+        self.linear = nn.Linear(512 * block.expansion, num_features)
 
     def _make_layer(self, block, planes, num_blocks, stride=1):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -295,7 +295,6 @@ class ResNet_CIFAR(nn.Module):
         x = F.avg_pool2d(x, 4)
         x = x.view(x.size(0), -1)
         x = self.linear(x)
-
         return x
 
 
@@ -309,7 +308,7 @@ def _resnet(arch, block, layers, pretrained, progress, **kwargs):
 
 
 def resnet18(pretrained=False, progress=True, **kwargs):
-    r"""ResNet-18 model from
+    """ResNet-18 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
@@ -320,7 +319,7 @@ def resnet18(pretrained=False, progress=True, **kwargs):
 
 
 def resnet50(pretrained=False, progress=True, **kwargs):
-    r"""ResNet-50 model from
+    """ResNet-50 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
@@ -330,9 +329,9 @@ def resnet50(pretrained=False, progress=True, **kwargs):
                    **kwargs)
 
 
-def resnet50_cifar():
-    return ResNet_CIFAR(Bottleneck_CIFAR, [3, 4, 6, 3])
+def resnet50_cifar(num_features=128):
+    return ResNet_CIFAR(Bottleneck_CIFAR, [3, 4, 6, 3], num_features)
 
 
-def resnet18_cifar():
-    return ResNet_CIFAR(BasicBlock_CIFAR, [2, 2, 2, 2])
+def resnet18_cifar(num_features=128):
+    return ResNet_CIFAR(BasicBlock_CIFAR, [2, 2, 2, 2], num_features)
