@@ -2,7 +2,11 @@ import argparse
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import ExponentialLR
+import numpy as np
+
 from tensorboardX import SummaryWriter
+from tqdm import tqdm
+
 
 from models import *
 from utils import *
@@ -69,40 +73,45 @@ if args.dataset_name == 'CIFAR10C':
 
 
 # train validate
-def train_validate(model, loader, optimizer, is_train, use_cuda):
+def train_validate(model, loader, optimizer, is_train, epoch, use_cuda):
 
     loss_func = contrastive_loss(tau=args.tau)
 
     data_loader = loader.train_loader if is_train else loader.test_loader
 
     model.train() if is_train else model.eval()
+    desc = 'Train' if is_train else 'Validation'
 
-    batch_loss = 0
-    for batch_idx, (x_i, x_j, _) in enumerate(data_loader):
+    total_loss = 0.0
+
+    tqdm_bar = tqdm(data_loader)
+    for (x_i, x_j, _) in tqdm_bar:
+        batch_loss = 0.0
 
         x_i = x_i.cuda() if use_cuda else x_i
         x_j = x_j.cuda() if use_cuda else x_j
 
-        f_i = model(x_i)
-        f_j = model(x_j)
+        _, z_i = model(x_i)
+        _, z_j = model(x_j)
 
-        print(f_i.size())
-
-        loss = loss_func(f_i, f_j)
+        loss = loss_func(z_i, z_j)
 
         if is_train:
             model.zero_grad()
             loss.backward()
             optimizer.step()
 
-        batch_loss = loss.item()
+        batch_loss += loss.item() / x_i.size(0)
+        total_loss += loss.item()
 
-    return batch_loss / (batch_idx + 1)
+        tqdm_bar.set_description('{} Epoch: [{}] Loss: {:.4f}'.format(desc, epoch, batch_loss))
+
+    return total_loss / (len(data_loader.dataset))
 
 
 def execute_graph(model, loader, optimizer, schedular, epoch, use_cuda):
-    t_loss = train_validate(model, loader, optimizer, True, use_cuda)
-    v_loss = train_validate(model, loader, optimizer, False, use_cuda)
+    t_loss = train_validate(model, loader, optimizer, True, epoch, use_cuda)
+    v_loss = train_validate(model, loader, optimizer, False, epoch, use_cuda)
 
     schedular.step(v_loss)
 
@@ -110,10 +119,10 @@ def execute_graph(model, loader, optimizer, schedular, epoch, use_cuda):
         logger.add_scalar(log_dir + '/train-loss', t_loss, epoch)
         logger.add_scalar(log_dir + '/valid-loss', v_loss, epoch)
 
-    print('Epoch: {} Train loss {}'.format(epoch, t_loss))
-    print('Epoch: {} Valid loss {}'.format(epoch, v_loss))
+    # print('Epoch: {} Train loss {}'.format(epoch, t_loss))
+    # print('Epoch: {} Valid loss {}'.format(epoch, v_loss))
 
-    return
+    return v_loss
 
 
 # model definition
@@ -126,8 +135,21 @@ schedular = ExponentialLR(optimizer, gamma=args.decay_lr)
 
 
 # Main training loop
+best_loss = np.inf
 for epoch in range(args.epochs):
-    execute_graph(model, loader, optimizer, schedular, epoch, use_cuda)
+    v_loss = execute_graph(model, loader, optimizer, schedular, epoch, use_cuda)
+
+    if v_loss < best_loss:
+        best_loss = v_loss
+        print('Writing model checkpoint')
+        state = {
+            'epoch': epoch,
+            'state_dict': model.state_dict(),
+            'val_loss': v_loss
+        }
+        file_name = 'models/{}_{:04.4f}.pt'.format(args.uid, v_loss)
+
+        torch.save(state, file_name)
 
 
 # TensorboardX logger
