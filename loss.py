@@ -9,6 +9,8 @@ class contrastive_loss(nn.Module):
 
     def forward(self, xi, xj):
 
+        use_cuda = xi.is_cuda
+
         x = torch.cat((xi, xj), dim=0)
 
         sim_mat_nom = torch.mm(x, x.T)
@@ -18,6 +20,8 @@ class contrastive_loss(nn.Module):
 
         # getting rid of diag
         diag_ind = torch.eye(xi.size(0) * 2).bool()
+        diag_ind = diag_ind.cuda() if use_cuda else diag_ind
+
         sim_mat = sim_mat.masked_fill_(diag_ind, 0)
 
         # top
