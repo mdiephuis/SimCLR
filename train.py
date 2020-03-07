@@ -30,8 +30,8 @@ parser.add_argument('--epochs', type=int, default=150, metavar='N',
                     help='number of training epochs (default: 150)')
 parser.add_argument('--lr', type=float, default=1e-3,
                     help='learning rate (default: 1e-3')
-parser.add_argument("--decay-lr", default=0.75, action="store", type=float,
-                    help='Learning rate decay (default: 0.75')
+parser.add_argument("--decay-lr", default=1e-6, action="store", type=float,
+                    help='Learning rate decay (default: 1e-6')
 parser.add_argument('--tau', default=0.5, type=float,
                     help='Tau temperature smoothing (default 0.5)')
 parser.add_argument('--log-dir', type=str, default='runs',
@@ -94,7 +94,6 @@ def train_validate(model, loader, optimizer, is_train, epoch, use_cuda):
 
     tqdm_bar = tqdm(data_loader)
     for (x_i, x_j, _) in tqdm_bar:
-        batch_loss = 0.0
 
         x_i = x_i.cuda() if use_cuda else x_i
         x_j = x_j.cuda() if use_cuda else x_j
@@ -109,10 +108,9 @@ def train_validate(model, loader, optimizer, is_train, epoch, use_cuda):
             loss.backward()
             optimizer.step()
 
-        batch_loss += loss.item() / x_i.size(0)
         total_loss += loss.item()
 
-        tqdm_bar.set_description('{} Epoch: [{}] Loss: {:.4f}'.format(desc, epoch, batch_loss))
+        tqdm_bar.set_description('{} Epoch: [{}] Loss: {:.4f}'.format(desc, epoch, loss.item()))
 
     return total_loss / (len(data_loader.dataset))
 

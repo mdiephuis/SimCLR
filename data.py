@@ -60,11 +60,13 @@ class Loader(object):
         kwargs = {'num_workers': 4, 'pin_memory': True} if use_cuda else {}
 
         loader_map = {
-            'CIFAR10C': CIFAR10C
+            'CIFAR10C': CIFAR10C,
+            'CIFAR10': datasets.CIFAR10
         }
 
         num_class = {
-            'CIFAR10C': 10
+            'CIFAR10C': 10,
+            'CIFAR10': 10
         }
 
         # Get the datasets
