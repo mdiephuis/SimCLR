@@ -96,12 +96,13 @@ def train_validate(classifier_model, feature_model, loader, optimizer, is_train,
     classifier_model.train() if is_train else classifier_model.eval()
     desc = 'Train' if is_train else 'Validation'
 
-    batch_loss = 0
     total_loss = 0
-    batch_acc = 0
+    total_acc = 0
 
     tqdm_bar = tqdm(data_loader)
     for batch_idx, (x, y) in enumerate(tqdm_bar):
+        batch_loss = 0
+        batch_acc = 0
 
         x = x.cuda() if use_cuda else x
         y = y.cuda() if use_cuda else y
@@ -120,26 +121,30 @@ def train_validate(classifier_model, feature_model, loader, optimizer, is_train,
             optimizer.step()
 
         # Reporting
-        batch_loss += loss.item() / x.size(0)
+        batch_loss = loss.item() / x.size(0)
         total_loss += loss.item()
 
         pred = y_hat.max(dim=1)[1]
         correct = pred.eq(y).sum().item()
         correct /= y.size(0)
-        batch_acc += (correct * 100)
+        batch_acc = (correct * 100)
+        total_acc += batch_acc
 
-        tqdm_bar.set_description('{} Epoch: [{}] Batch Loss: {:.4f} Batch Acc: {:.4f}'.format(desc, epoch, batch_loss / batch_idx + 1, batch_acc / batch_idx + 1))
+        tqdm_bar.set_description('{} Epoch: [{}] Batch Loss: {:.4f} Batch Acc: {:.4f}'.format(desc, epoch, batch_loss, batch_acc))
 
-    return total_loss / (len(data_loader.dataset))
+    return total_loss / (batch_idx + 1), total_acc / (batch_idx + 1)
 
 
 def execute_graph(classifier_model, feature_model, loader, optimizer, epoch, use_cuda):
-    t_loss = train_validate(classifier_model, feature_model, loader, optimizer, True, epoch, use_cuda)
-    v_loss = train_validate(classifier_model, feature_model, loader, optimizer, False, epoch, use_cuda)
+    t_loss, t_acc = train_validate(classifier_model, feature_model, loader, optimizer, True, epoch, use_cuda)
+    v_loss, v_acc = train_validate(classifier_model, feature_model, loader, optimizer, False, epoch, use_cuda)
 
     if use_tb:
         logger.add_scalar(log_dir + '/train-loss', t_loss, epoch)
         logger.add_scalar(log_dir + '/valid-loss', v_loss, epoch)
+
+        logger.add_scalar(log_dir + '/train-acc', t_acc, epoch)
+        logger.add_scalar(log_dir + '/valid-acc', v_acc, epoch)
 
     # print('Epoch: {} Train loss {}'.format(epoch, t_loss))
     # print('Epoch: {} Valid loss {}'.format(epoch, v_loss))
