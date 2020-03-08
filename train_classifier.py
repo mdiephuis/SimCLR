@@ -28,7 +28,7 @@ parser.add_argument('--data-dir', type=str, default='data',
                     help='Path to dataset (default: data')
 parser.add_argument('--feature-size', type=int, default=128,
                     help='Feature output size (default: 128')
-parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+parser.add_argument('--batch-size', type=int, default=32, metavar='N',
                     help='input training batch-size')
 parser.add_argument('--epochs', type=int, default=150, metavar='N',
                     help='number of training epochs (default: 150)')
@@ -97,10 +97,11 @@ def train_validate(classifier_model, feature_model, loader, optimizer, is_train,
     desc = 'Train' if is_train else 'Validation'
 
     batch_loss = 0
+    total_loss = 0
     batch_acc = 0
 
     tqdm_bar = tqdm(data_loader)
-    for x, y in tqdm_bar:
+    for batch_idx, (x, y) in enumerate(tqdm_bar):
 
         x = x.cuda() if use_cuda else x
         y = y.cuda() if use_cuda else y
@@ -120,13 +121,14 @@ def train_validate(classifier_model, feature_model, loader, optimizer, is_train,
 
         # Reporting
         batch_loss += loss.item() / x.size(0)
+        total_loss += loss.item()
 
         pred = y_hat.max(dim=1)[1]
         correct = pred.eq(y).sum().item()
         correct /= y.size(0)
         batch_acc += (correct * 100)
 
-        tqdm_bar.set_description('{} Epoch: [{}] Batch Loss: {:.4f} Batch Acc: {:.4f}'.format(desc, epoch, batch_loss, batch_acc))
+        tqdm_bar.set_description('{} Epoch: [{}] Batch Loss: {:.4f} Batch Acc: {:.4f}'.format(desc, epoch, batch_loss / batch_idx + 1, batch_acc / batch_idx + 1))
 
     return total_loss / (len(data_loader.dataset))
 
