@@ -76,7 +76,7 @@ class Loader(object):
         self.train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, **kwargs)
         self.test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, **kwargs)
 
-        tmp_batch, _, _ = self.train_loader.__iter__().__next__()
+        tmp_batch = self.train_loader.__iter__().__next__()[0]
         self.img_shape = list(tmp_batch.size())[1:]
         self.num_class = num_class[dataset_ident]
 

@@ -4,7 +4,7 @@ from torch.hub import load_state_dict_from_url
 import torch.nn.functional as F
 
 
-__all__ = ['ResNet', 'resnet18', 'resnet50', 'resnet50_cifar', 'resnet18_cifar']
+__all__ = ['ResNet', 'resnet18', 'resnet50', 'resnet50_cifar', 'resnet18_cifar', 'SimpleNet']
 
 
 model_urls = {
@@ -356,8 +356,7 @@ class SimpleNet(nn.Module):
         self.num_classes = num_classes
 
         self.fc = nn.Linear(self.input_dim, self.num_classes)
-        self.sm = nn.Softmax()
 
     def forward(self, x):
         x = self.fc(x)
-        return self.sm(x)
+        return x

@@ -41,6 +41,8 @@ parser.add_argument('--log-dir', type=str, default='runs',
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables cuda (default: False')
 
+args = parser.parse_args()
+
 # Set cuda
 use_cuda = not args.no_cuda and torch.cuda.is_available()
 
@@ -79,7 +81,7 @@ test_transforms = transforms.Compose([
 ])
 
 
-loader = Loader(args.dataset_name_, args.data_dir, True, args.batch_size, train_transforms, test_transforms, None, use_cuda)
+loader = Loader(args.dataset_name, args.data_dir, True, args.batch_size, train_transforms, test_transforms, None, use_cuda)
 train_loader = loader.train_loader
 test_loader = loader.test_loader
 
@@ -109,7 +111,7 @@ def train_validate(classifier_model, feature_model, loader, optimizer, is_train,
         # Classify features
         y_hat = classifier_model(f_x)
 
-        loss = loss_func(y, y_hat)
+        loss = loss_func(y_hat, y)
 
         if is_train:
             classifier_model.zero_grad()
@@ -158,7 +160,7 @@ else:
 
 #
 # Define linear classification model
-classifier_model = SimpleNet()
+classifier_model = SimpleNet().type(dtype)
 optimizer = optim.Adam(classifier_model.parameters(), lr=args.lr, weight_decay=args.decay_lr)
 
 
