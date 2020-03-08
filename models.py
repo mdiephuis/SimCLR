@@ -301,7 +301,7 @@ class ResNet_CIFAR(nn.Module):
 
         x = F.avg_pool2d(x, 4)
 
-        # Feature representation
+        # Feature representation, 2048
         h_out = x.view(x.size(0), -1)
 
         # Learning output
@@ -347,3 +347,17 @@ def resnet50_cifar(num_features=128):
 
 def resnet18_cifar(num_features=128):
     return ResNet_CIFAR(BasicBlock_CIFAR, [2, 2, 2, 2], num_features)
+
+
+class SimpleNet(nn.Module):
+    def __init__(self, input_dim=2048, num_classes=10):
+        super(SimpleNet, self).__init__()
+        self.input_dim = input_dim
+        self.num_classes = num_classes
+
+        self.fc = nn.Linear(self.input_dim, self.num_classes)
+        self.sm = nn.Softmax()
+
+    def forward(self, x):
+        x = self.fc(x)
+        return self.sm(x)
