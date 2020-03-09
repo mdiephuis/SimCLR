@@ -1,3 +1,33 @@
 # SimCLR
-Exploratory implementation of the paper
+Pytorch implementation of the paper
 [A Simple Framework for Contrastive Learning of Visual Representations](https://arxiv.org/abs/2002.05709)
+
+* ADAM optimizer 
+* ExponentialLR schedular. No warmup or other exotics
+* Batchsize of 256 via gradient accumulation
+
+## Feature model
+* [Resnet50](https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py), where the first convolutional layer has a filter size of 3 instead of 7.  
+* h() feature dimensionality: 2048
+* z() learning head output dimensionality: 128
+
+## Classifier model
+* Simple 1 layer Neural network from 128 to num_classes
+
+## Results
+
+| Epochs | 100 | 200 
+| ------ |-----| ------|
+| Feature model (loss) | |
+| Classifier model (accuracy) | |
+
+## Run
+Train the feature extracting model (resnet). Note CIFAR10C is an overloaded dataset that provides the augmented image pairs. 
+
+    python train_features.py --batch-size=64 --accumulation-steps=4 --tau=0.5 
+                              --feature-size=128 --dataset-name=CIFAR10C --data-dir=path/to/your/data
+    
+Train the classifier model. Needs a saved feature model to extract features from images. 
+
+    python train_classifier.py --load-model=models/modelname_timestamp.pt --dataset-name=CIFAR10 
+                              --data-dir=path/to/your/data
