@@ -22,7 +22,7 @@ Pytorch implementation of the paper
 | This repo |85.8 | 86.14
 
 ## Run
-Train the feature extracting model (resnet). Note CIFAR10C is an overloaded dataset that provides the augmented image pairs. 
+Train the feature extracting model (resnet). Note CIFAR10C inherits from datasets.CIFAR and provides the augmented image pairs. 
 
     python train_features.py --batch-size=64 --accumulation-steps=4 --tau=0.5 
                               --feature-size=128 --dataset-name=CIFAR10C --data-dir=path/to/your/data
