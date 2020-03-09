@@ -12,7 +12,7 @@ Pytorch implementation of the paper
 * z() learning head output dimensionality: 128
 
 ## Classifier model
-* Simple 1 layer Neural network from 128 to num_classes
+* Simple 1 layer Neural network from 2048 to num_classes
 
 ## Classification Results
 
