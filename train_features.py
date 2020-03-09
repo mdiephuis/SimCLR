@@ -149,7 +149,7 @@ def execute_graph(model, loader, optimizer, schedular, epoch, use_cuda):
 model = resnet50_cifar(args.feature_size).type(dtype)
 
 if args.multi_gpu:
-    model = torch.nn.DataParallel(model, device_ids=[0, 1, 4, 5])
+    model = torch.nn.DataParallel(model, device_ids=[4, 5, 6, 7])
     print('Multi gpu')
 
 # init?
