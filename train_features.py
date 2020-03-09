@@ -54,6 +54,7 @@ use_cuda = not args.no_cuda and torch.cuda.is_available()
 if use_cuda:
     dtype = torch.cuda.FloatTensor
     device = torch.device("cuda")
+    torch.cuda.set_device(4)
     print('GPU')
 else:
     dtype = torch.FloatTensor
@@ -145,12 +146,11 @@ def execute_graph(model, loader, optimizer, schedular, epoch, use_cuda):
     return v_loss
 
 
+model = resnet50_cifar(args.feature_size).type(dtype)
+
 if args.multi_gpu:
     model = torch.nn.DataParallel(model, device_ids=[4, 5, 6, 7])
     print('Multi gpu')
-else:
-    # model definition
-    model = resnet50_cifar(args.feature_size).type(dtype)
 
 # init?
 
