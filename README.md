@@ -14,12 +14,12 @@ Pytorch implementation of the paper
 ## Classifier model
 * Simple 1 layer Neural network from 128 to num_classes
 
-## Results
+## Classification Results
 
 | Epochs | 100 | 200 
 | ------ |-----| ------|
-| Feature model (loss) | |
-| Classifier model (accuracy) | |
+| Paper | 83.9| 89.2
+| This repo |85.8 | 86.14
 
 ## Run
 Train the feature extracting model (resnet). Note CIFAR10C is an overloaded dataset that provides the augmented image pairs. 
