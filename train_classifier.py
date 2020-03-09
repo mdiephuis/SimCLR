@@ -1,7 +1,6 @@
 import argparse
 import torch
 import torch.optim as optim
-from torch.optim.lr_scheduler import ExponentialLR
 import numpy as np
 
 from tensorboardX import SummaryWriter

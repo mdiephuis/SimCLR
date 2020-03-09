@@ -7,6 +7,7 @@ import numpy as np
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 import os
+import time
 
 
 from models import *
@@ -26,6 +27,8 @@ parser.add_argument('--feature-size', type=int, default=128,
                     help='Feature output size (default: 128')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input training batch-size')
+parser.add_argument('--accumulation-steps', type=int, default=4, metavar='N',
+                    help='Gradient accumulation steps (default: 4')
 parser.add_argument('--epochs', type=int, default=150, metavar='N',
                     help='number of training epochs (default: 150)')
 parser.add_argument('--lr', type=float, default=1e-3,
@@ -74,8 +77,9 @@ if args.dataset_name == 'CIFAR10C':
     # Get train and test loaders for dataset
     train_transforms = cifar_train_transforms()
     test_transforms = cifar_test_transforms()
+    target_transforms = None
 
-    loader = Loader(args.dataset_name, args.data_dir, True, args.batch_size, train_transforms, test_transforms, None, use_cuda)
+    loader = Loader(args.dataset_name, args.data_dir, True, args.batch_size, train_transforms, test_transforms, target_transforms, use_cuda)
     train_loader = loader.train_loader
     test_loader = loader.test_loader
 
@@ -87,13 +91,18 @@ def train_validate(model, loader, optimizer, is_train, epoch, use_cuda):
 
     data_loader = loader.train_loader if is_train else loader.test_loader
 
-    model.train() if is_train else model.eval()
+    if is_train:
+        model.train()
+        model.zero_grad()
+    else:
+        model.eval()
+
     desc = 'Train' if is_train else 'Validation'
 
     total_loss = 0.0
 
     tqdm_bar = tqdm(data_loader)
-    for (x_i, x_j, _) in tqdm_bar:
+    for i, (x_i, x_j, _) in enumerate(tqdm_bar):
 
         x_i = x_i.cuda() if use_cuda else x_i
         x_j = x_j.cuda() if use_cuda else x_j
@@ -102,11 +111,14 @@ def train_validate(model, loader, optimizer, is_train, epoch, use_cuda):
         _, z_j = model(x_j)
 
         loss = loss_func(z_i, z_j)
+        loss /= args.accumulation_steps
 
         if is_train:
-            model.zero_grad()
             loss.backward()
+
+        if (i + 1) % args.accumulation_steps == 0 and is_train:
             optimizer.step()
+            model.zero_grad()
 
         total_loss += loss.item()
 
@@ -169,7 +181,9 @@ for epoch in range(args.epochs):
             'schedular': schedular.state_dict(),
             'val_loss': v_loss
         }
-        file_name = 'models/{}_{}_{:04.4f}.pt'.format(args.uid, epoch, v_loss)
+        t = time.localtime()
+        timestamp = time.strftime('%b-%d-%Y_%H%M', t)
+        file_name = 'models/{}_{}_{}_{:04.4f}.pt'.format(timestamp, args.uid, epoch, v_loss)
 
         torch.save(state, file_name)
 
