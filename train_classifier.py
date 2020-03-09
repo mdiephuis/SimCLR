@@ -30,7 +30,7 @@ parser.add_argument('--feature-size', type=int, default=128,
                     help='Feature output size (default: 128')
 parser.add_argument('--batch-size', type=int, default=32, metavar='N',
                     help='input training batch-size')
-parser.add_argument('--epochs', type=int, default=150, metavar='N',
+parser.add_argument('--epochs', type=int, default=200, metavar='N',
                     help='number of training epochs (default: 150)')
 parser.add_argument('--lr', type=float, default=1e-3,
                     help='learning rate (default: 1e-3')
@@ -48,7 +48,8 @@ use_cuda = not args.no_cuda and torch.cuda.is_available()
 
 if use_cuda:
     dtype = torch.cuda.FloatTensor
-    device = torch.device("cuda:0")
+    device = torch.device("cuda")
+    torch.cuda.set_device(1)
     print('GPU')
 else:
     dtype = torch.FloatTensor
@@ -109,6 +110,7 @@ def train_validate(classifier_model, feature_model, loader, optimizer, is_train,
 
         # Get features
         f_x, _ = feature_model(x)
+        f_x = f_x.detach()
 
         # Classify features
         y_hat = classifier_model(f_x)
