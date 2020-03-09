@@ -54,7 +54,7 @@ use_cuda = not args.no_cuda and torch.cuda.is_available()
 if use_cuda:
     dtype = torch.cuda.FloatTensor
     device = torch.device("cuda")
-    torch.cuda.set_device(4)
+    torch.cuda.set_device(0)
     print('GPU')
 else:
     dtype = torch.FloatTensor
