@@ -41,6 +41,8 @@ parser.add_argument('--log-dir', type=str, default='runs',
                     help='logging directory (default: runs)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables cuda (default: False')
+parser.add_argument('--multi-gpu', action='store_true', default=False,
+                    help='disables multi-gpu (default: False')
 parser.add_argument('--load-model', type=str, default=None,
                     help='Load model to resume training for (default None)')
 
@@ -51,7 +53,7 @@ use_cuda = not args.no_cuda and torch.cuda.is_available()
 
 if use_cuda:
     dtype = torch.cuda.FloatTensor
-    device = torch.device("cuda:0")
+    device = torch.device("cuda")
     print('GPU')
 else:
     dtype = torch.FloatTensor
@@ -145,6 +147,10 @@ def execute_graph(model, loader, optimizer, schedular, epoch, use_cuda):
 
 # model definition
 model = resnet50_cifar(args.feature_size).type(dtype)
+
+if args.multi_gpu:
+    model = torch.nn.DataParallel(model, device_ids=[0, 1, 4, 5])
+    print('Multi gpu')
 
 # init?
 
