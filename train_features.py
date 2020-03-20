@@ -2,6 +2,7 @@ import argparse
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import ExponentialLR
+from torchlars import LARS
 import numpy as np
 
 from tensorboardX import SummaryWriter
@@ -45,6 +46,8 @@ parser.add_argument('--multi-gpu', action='store_true', default=False,
                     help='disables multi-gpu (default: False')
 parser.add_argument('--load-model', type=str, default=None,
                     help='Load model to resume training for (default None)')
+parser.add_argument('--device-id', type=int, default=0,
+                    help='GPU device id (default: 0')
 
 args = parser.parse_args()
 
@@ -54,7 +57,7 @@ use_cuda = not args.no_cuda and torch.cuda.is_available()
 if use_cuda:
     dtype = torch.cuda.FloatTensor
     device = torch.device("cuda")
-    torch.cuda.set_device(0)
+    torch.cuda.set_device(args.device_id)
     print('GPU')
 else:
     dtype = torch.FloatTensor
@@ -154,7 +157,8 @@ if args.multi_gpu:
 
 # init?
 
-optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.decay_lr)
+base_optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.decay_lr)
+optimizer = LARS(optimizer=base_optimizer, eps=1e-8, trust_coef=0.001)
 schedular = ExponentialLR(optimizer, gamma=args.decay_lr)
 
 
@@ -167,6 +171,7 @@ if args.load_model is not None:
         checkpoint = torch.load(args.load_model)
         model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
+        base_optimizer.load_state_dict(checkpoint['base_optimizer'])
         schedular.load_state_dict(checkpoint['schedular'])
         best_loss = checkpoint['val_loss']
         epoch = checkpoint['epoch']
@@ -184,6 +189,7 @@ for epoch in range(args.epochs):
             'epoch': epoch,
             'model': model.state_dict(),
             'optimizer': optimizer.state_dict(),
+            'base_optimizer': base_optimizer.state_dict(),
             'schedular': schedular.state_dict(),
             'val_loss': v_loss
         }
