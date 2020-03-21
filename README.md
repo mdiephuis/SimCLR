@@ -16,11 +16,11 @@ Pytorch implementation of the paper
 
 ## Classification Results
 
-| Epochs | 100 | 200 | 300
-| ------ |-----| ------| ------ |
-| Paper | 83.9| 89.2 | xx.xx
-| This repo ADAM |85.8 | 86.14 | xx.xx
-| This repo ADAM + LARS |xx.xx | xx.xx | xx.xx
+| Epochs | 100 | 200 | 
+| ------ |-----| ------| 
+| Paper | 83.9| 89.2 | 
+| This repo ADAM |85.8 | 86.14 |
+| This repo ADAM + LARS |87.55 | 87.7 |
 
 ## Run
 Train the feature extracting model (resnet). Note CIFAR10C inherits from datasets.CIFAR and provides the augmented image pairs. 
