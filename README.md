@@ -20,7 +20,7 @@ Pytorch implementation of the paper
 | ------ |-----| ------| ------ |
 | Paper | 83.9| 89.2 | xx.xx
 | This repo |85.8 | 86.14 | xx.xx
-| This repo + LARS |xx.xx | xx.xx | 93.7500
+| This repo + LARS |xx.xx | xx.xx | xx.xx
 
 ## Run
 Train the feature extracting model (resnet). Note CIFAR10C inherits from datasets.CIFAR and provides the augmented image pairs. 
