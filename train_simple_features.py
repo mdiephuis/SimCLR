@@ -2,6 +2,7 @@ import argparse
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import ExponentialLR
+import torch.distributions as D
 from torchlars import LARS
 import numpy as np
 
@@ -113,10 +114,21 @@ def train_validate(model, loader, optimizer, is_train, epoch, use_cuda):
         x_i = x_i.cuda() if use_cuda else x_i
         x_j = x_j.cuda() if use_cuda else x_j
 
-        _, z_i = model(x_i)
-        _, z_j = model(x_j)
+        _, mu_i, std_i = model(x_i)
+        _, mu_j, std_j = model(x_j)
 
-        loss = loss_func(z_i, z_j)
+        p_i = D.independent.Independent(D.normal.Normal(mu_i, std_i), 1)
+        p_j = D.independent.Independent(D.normal.Normal(mu_j, std_j), 1)
+
+        z_i = p_i.rsample()
+        z_j = p_j.rsample()
+
+        kl_1_2 = p_i.log_prob(z_i) - p_j.log_prob(z_i)
+        kl_2_1 = p_j.log_prob(z_j) - p_i.log_prob(z_j)
+
+        kl_loss = (kl_1_2 + kl_2_1).mean() / 2
+        loss = kl_loss
+
         loss /= args.accumulation_steps
 
         if is_train:
@@ -128,7 +140,7 @@ def train_validate(model, loader, optimizer, is_train, epoch, use_cuda):
 
         total_loss += loss.item()
 
-        tqdm_bar.set_description('{} Epoch: [{}] Loss: {:.4f}'.format(desc, epoch, loss.item()))
+        tqdm_bar.set_description('{} Epoch: [{}] Loss: {}'.format(desc, epoch, loss.item()))
 
     return total_loss / (len(data_loader.dataset))
 
@@ -150,7 +162,7 @@ def execute_graph(model, loader, optimizer, scheduler, epoch, use_cuda):
 
 
 # Simple model for testing
-model = SimpleFeatureNet().type(dtype)
+model = SimpleFeatureEncoderNet().type(dtype)
 
 if args.multi_gpu:
     model = torch.nn.DataParallel(model, device_ids=[4, 5, 6, 7])
