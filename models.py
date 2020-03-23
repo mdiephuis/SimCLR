@@ -4,7 +4,7 @@ from torch.hub import load_state_dict_from_url
 import torch.nn.functional as F
 
 
-__all__ = ['ResNet', 'resnet18', 'resnet50', 'resnet50_cifar', 'resnet18_cifar', 'SimpleNet']
+__all__ = ['ResNet', 'resnet18', 'resnet50', 'resnet50_cifar', 'resnet18_cifar', 'SimpleNet', 'SimpleFeatureNet']
 
 
 model_urls = {
@@ -360,3 +360,29 @@ class SimpleNet(nn.Module):
     def forward(self, x):
         x = self.fc(x)
         return x
+
+
+class SimpleFeatureNet(nn.Module):
+    def __init__(self):
+        super(SimpleFeatureNet, self).__init__()
+        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+
+        self.feature_net = nn.Linear(16 * 5 * 5, 16 * 5 * 5)
+        # z 128 learning head
+        # h 2048 feature output
+
+        self.learning_head = nn.Sequential(
+            nn.Linear(16 * 5 * 5, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128)
+        )
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = x.view(-1, 16 * 5 * 5)
+        h_out = F.relu(self.feature_net(x))
+        z_out = self.learning_head(h_out)
+        return F.normalize(h_out, dim=-1), F.normalize(z_out, dim=-1)
