@@ -404,7 +404,14 @@ class SimpleFeatureEncoderNet(nn.Module):
             nn.ReLU(),
         )
 
-        self.mu_encoder = nn.Linear(256, 128)
+        self.mu_encoder = nn.Sequential(
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128)
+        )
+
         self.std_encoder = nn.Linear(256, 128)
 
     def forward(self, x):
