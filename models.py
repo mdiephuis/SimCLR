@@ -4,7 +4,8 @@ from torch.hub import load_state_dict_from_url
 import torch.nn.functional as F
 
 
-__all__ = ['ResNet', 'resnet18', 'resnet50', 'resnet50_cifar', 'resnet18_cifar', 'SimpleNet', 'SimpleFeatureNet', 'SimpleFeatureEncoderNet']
+__all__ = ['ResNet', 'resnet18', 'resnet50', 'resnet50_cifar', 'resnet18_cifar', 'SimpleNet',
+           'SimpleFeatureNet', 'SimpleFeatureEncoderNet', 'MiEstimator']
 
 
 model_urls = {
@@ -426,3 +427,27 @@ class SimpleFeatureEncoderNet(nn.Module):
         std = torch.clamp(torch.sigmoid(std), min=0.01)
 
         return F.normalize(h_out, dim=-1), mu, std
+
+
+class MiEstimator(nn.Module):
+    def __init__(self, size1, size2, d):
+        super(MiEstimator, self).__init__()
+        self.size1 = size1
+        self.size2 = size2
+        self.d = d
+
+        self.network = nn.Sequential(
+            nn.Linear(size1 + size2, self.d),
+            nn.ReLU(True),
+            nn.Linear(self.d, self.d),
+            nn.ReLU(True),
+            nn.Linear(d, 1)
+        )
+
+    def forward(self, x1, x2):
+        # Gradient for JSD mutual information estimation and EB-based estimation
+        pos = self.net(torch.cat([x1, x2], 1))  # Positive Samples
+        neg = self.net(torch.cat([torch.roll(x1, 1, 0), x2], 1))
+        grad = -F.softplus(-pos).mean() - F.softplus(neg).mean()
+        out = pos.mean() - neg.exp().mean() + 1
+        return grad, out
