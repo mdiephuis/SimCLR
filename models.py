@@ -413,7 +413,13 @@ class SimpleFeatureEncoderNet(nn.Module):
             nn.Linear(256, 128)
         )
 
-        self.std_encoder = nn.Linear(256, 128)
+        self.std_encoder = nn.Sequential(
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128)
+        )
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
@@ -437,17 +443,17 @@ class MiEstimator(nn.Module):
         self.d = d
 
         self.network = nn.Sequential(
-            nn.Linear(size1 + size2, self.d),
+            nn.Linear(self.size1 + self.size2, self.d),
             nn.ReLU(True),
             nn.Linear(self.d, self.d),
             nn.ReLU(True),
-            nn.Linear(d, 1)
+            nn.Linear(self.d, 1)
         )
 
     def forward(self, x1, x2):
         # Gradient for JSD mutual information estimation and EB-based estimation
-        pos = self.net(torch.cat([x1, x2], 1))  # Positive Samples
-        neg = self.net(torch.cat([torch.roll(x1, 1, 0), x2], 1))
+        pos = self.network(torch.cat([x1, x2], -1))  # Positive Samples
+        neg = self.network(torch.cat([torch.roll(x1, 1, 0), x2], -1))
         grad = -F.softplus(-pos).mean() - F.softplus(neg).mean()
         out = pos.mean() - neg.exp().mean() + 1
         return grad, out
