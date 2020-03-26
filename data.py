@@ -34,6 +34,25 @@ def cifar_test_transforms():
     return all_transforms
 
 
+def mnist_train_transforms():
+    # Defining the augmentations
+    all_transforms = transforms.Compose([
+        transforms.RandomAffine(degrees=15,
+                                translate=[0.1, 0.1],
+                                scale=[0.9, 1.1],
+                                shear=15),
+        transforms.ToTensor()
+    ])
+    return all_transforms
+
+
+def mnist_test_transforms():
+    all_transforms = transforms.Compose([
+        transforms.ToTensor()
+    ])
+    return all_transforms
+
+
 class CIFAR10C(datasets.CIFAR10):
     def __init__(self, *args, **kwargs):
         super(CIFAR10C, self).__init__(*args, **kwargs)
@@ -54,6 +73,26 @@ class CIFAR10C(datasets.CIFAR10):
         return xi, xj, target
 
 
+class MNISTC(datasets.MNIST):
+    def __init__(self, *args, **kwargs):
+        super(MNISTC, self).__init__(*args, **kwargs)
+
+    def __getitem__(self, index):
+        img, target = self.data[index], int(self.targets[index])
+
+        # return a PIL Image
+        img = Image.fromarray(img.numpy(), mode='L')
+
+        if self.transform is not None:
+            xi = self.transform(img)
+            xj = self.transform(img)
+
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        return xi, xj, target
+
+
 class Loader(object):
     def __init__(self, dataset_ident, file_path, download, batch_size, train_transform, test_transform, target_transform, use_cuda):
 
@@ -61,12 +100,16 @@ class Loader(object):
 
         loader_map = {
             'CIFAR10C': CIFAR10C,
-            'CIFAR10': datasets.CIFAR10
+            'CIFAR10': datasets.CIFAR10,
+            'MNIST': datasets.MNIST,
+            'MNISTC': MNISTC
         }
 
         num_class = {
             'CIFAR10C': 10,
-            'CIFAR10': 10
+            'CIFAR10': 10,
+            'MNIST': 10,
+            'MNISTC': 10
         }
 
         # Get the datasets
