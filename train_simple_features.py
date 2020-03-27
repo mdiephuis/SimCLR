@@ -136,9 +136,10 @@ def train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, beta_schedu
         mi_grad, mi_out = mi_estimator(zi, zj)
         mi_grad *= -1
 
-        mi_estimator.zero_grad()
-        mi_grad.backward(retain_graph=True)
-        MI_optim.step()
+        if is_train:
+            mi_estimator.zero_grad()
+            mi_grad.backward(retain_graph=True)
+            MI_optim.step()
 
         # Symmetric KL
         kl_1_2 = p_xi_vi.log_prob(zi) - p_xj_vj.log_prob(zi)
@@ -147,9 +148,10 @@ def train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, beta_schedu
 
         loss = mi_grad + beta * skl
 
-        encoder.zero_grad()
-        loss.backward()
-        E_optim.step()
+        if is_train:
+            encoder.zero_grad()
+            loss.backward()
+            E_optim.step()
 
         total_loss += loss.item()
 
