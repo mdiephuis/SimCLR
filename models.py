@@ -4,8 +4,7 @@ from torch.hub import load_state_dict_from_url
 import torch.nn.functional as F
 
 
-__all__ = ['ResNet', 'resnet18', 'resnet50', 'resnet50_cifar', 'resnet18_cifar', 'SimpleNet',
-           'SimpleFeatureNet', 'SimpleFeatureEncoderNet', 'MiEstimator']
+__all__ = ['ResNet', 'resnet18', 'resnet50', 'resnet50_cifar', 'resnet18_cifar', 'SimpleNet']
 
 
 model_urls = {

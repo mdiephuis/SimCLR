@@ -1,7 +1,6 @@
 import argparse
 import torch
 import torch.optim as optim
-from torch.optim.lr_scheduler import ExponentialLR
 import torch.distributions as D
 from torchlars import LARS
 import numpy as np
@@ -11,40 +10,31 @@ from tqdm import tqdm
 import os
 import time
 
-
+from simple_models import *
 from models import *
 from utils import *
 from data import *
 from loss import *
+from scheduler import *
 
-parser = argparse.ArgumentParser(description='SimpleSIMCLR')
+parser = argparse.ArgumentParser(description='MIB')
 
-parser.add_argument('--uid', type=str, default='SimpleSimCLR',
-                    help='Staging identifier (default: SimpleSimCLR)')
-parser.add_argument('--dataset-name', type=str, default='CIFAR10C',
-                    help='Name of dataset (default: CIFAR10C')
+parser.add_argument('--uid', type=str, default='MIB',
+                    help='Staging identifier (default: MIB)')
+parser.add_argument('--dataset-name', type=str, default='MNISTC',
+                    help='Name of dataset (default: MNISTC')
 parser.add_argument('--data-dir', type=str, default='data',
                     help='Path to dataset (default: data')
-parser.add_argument('--feature-size', type=int, default=128,
-                    help='Feature output size (default: 128')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
                     help='input training batch-size')
-parser.add_argument('--accumulation-steps', type=int, default=4, metavar='N',
-                    help='Gradient accumulation steps (default: 4')
 parser.add_argument('--epochs', type=int, default=150, metavar='N',
                     help='number of training epochs (default: 150)')
 parser.add_argument('--lr', type=float, default=1e-3,
                     help='learning rate (default: 1e-3')
-parser.add_argument("--decay-lr", default=1e-6, action="store", type=float,
-                    help='Learning rate decay (default: 1e-6')
-parser.add_argument('--tau', default=0.5, type=float,
-                    help='Tau temperature smoothing (default 0.5)')
 parser.add_argument('--log-dir', type=str, default='runs',
                     help='logging directory (default: runs)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables cuda (default: False')
-parser.add_argument('--multi-gpu', action='store_true', default=False,
-                    help='disables multi-gpu (default: False')
 parser.add_argument('--load-model', type=str, default=None,
                     help='Load model to resume training for (default None)')
 parser.add_argument('--device-id', type=int, default=0,
@@ -86,57 +76,68 @@ if args.dataset_name == 'CIFAR10C':
     test_transforms = cifar_test_transforms()
     target_transforms = None
 
-    loader = Loader(args.dataset_name, args.data_dir, True, args.batch_size, train_transforms, test_transforms, target_transforms, use_cuda)
-    train_loader = loader.train_loader
-    test_loader = loader.test_loader
+if args.dataset_name == 'MNISTC':
+    train_transforms = mnist_train_transforms()
+    test_transforms = mnist_test_transforms()
+    target_transforms = None
+
+loader = Loader(args.dataset_name, args.data_dir, True, args.batch_size, train_transforms, test_transforms, target_transforms, use_cuda)
+train_loader = loader.train_loader
+test_loader = loader.test_loader
 
 
 # train validate
-def train_validate(model, loader, optimizer, is_train, epoch, use_cuda):
-
-    loss_func = contrastive_loss(tau=args.tau)
+def train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, beta_scheduler, is_train, epoch, use_cuda):
 
     data_loader = loader.train_loader if is_train else loader.test_loader
 
     if is_train:
-        model.train()
-        model.zero_grad()
+        encoder.train()
+        mi_estimator.train()
+        encoder.zero_grad()
+        mi_estimator.zero_grad()
     else:
-        model.eval()
+        encoder.eval()
+        mi_estimator.eval()
 
     desc = 'Train' if is_train else 'Validation'
 
     total_loss = 0.0
 
     tqdm_bar = tqdm(data_loader)
-    for i, (x_i, x_j, _) in enumerate(tqdm_bar):
+    for i, (xi, xj, _) in enumerate(tqdm_bar):
 
-        x_i = x_i.cuda() if use_cuda else x_i
-        x_j = x_j.cuda() if use_cuda else x_j
+        beta = beta_scheduler(i)
 
-        _, mu_i, std_i = model(x_i)
-        _, mu_j, std_j = model(x_j)
+        xi = xi.cuda() if use_cuda else xi
+        xj = xj.cuda() if use_cuda else xj
 
-        p_i = D.independent.Independent(D.normal.Normal(mu_i, std_i), 1)
-        p_j = D.independent.Independent(D.normal.Normal(mu_j, std_j), 1)
+        # Encoder forward
+        p_xi_vi = encoder(xi)
+        p_xj_vj = encoder(xj)
 
-        z_i = p_i.rsample()
-        z_j = p_j.rsample()
+        # Sample
+        zi = p_xi_vi.rsample()
+        zj = p_xj_vj.rsample()
 
-        kl_1_2 = p_i.log_prob(z_i) - p_j.log_prob(z_i)
-        kl_2_1 = p_j.log_prob(z_j) - p_i.log_prob(z_j)
+        # MI gradient
+        mi_grad, mi_out = mi_estimator(zi, zj)
+        mi_grad *= -1
 
-        kl_loss = (kl_1_2 + kl_2_1).mean() / 2
-        loss = kl_loss
+        mi_estimator.zero_grad()
+        mi_grad.backward(retain_graph=True)
+        MI_optim.step()
 
-        loss /= args.accumulation_steps
+        # Symmetric KL
+        kl_1_2 = p_xi_vi.log_prob(zi) - p_xj_vj.log_prob(zi)
+        kl_2_1 = p_xj_vj.log_prob(zj) - p_xi_vi.log_prob(zj)
+        skl = (kl_1_2 + kl_2_1).mean() / 2.
 
-        if is_train:
-            loss.backward()
+        loss = mi_grad + beta * skl
 
-        if (i + 1) % args.accumulation_steps == 0 and is_train:
-            optimizer.step()
-            model.zero_grad()
+        encoder.zero_grad()
+        loss.backward()
+        E_optim.step()
 
         total_loss += loss.item()
 
@@ -145,11 +146,9 @@ def train_validate(model, loader, optimizer, is_train, epoch, use_cuda):
     return total_loss / (len(data_loader.dataset))
 
 
-def execute_graph(model, loader, optimizer, scheduler, epoch, use_cuda):
-    t_loss = train_validate(model, loader, optimizer, True, epoch, use_cuda)
-    v_loss = train_validate(model, loader, optimizer, False, epoch, use_cuda)
-
-    scheduler.step(v_loss)
+def execute_graph(encoder, mi_estimator, loader, E_optim, MI_optim, beta_scheduler, epoch, use_cuda):
+    t_loss = train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, beta_scheduler, True, epoch, use_cuda)
+    v_loss = train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, beta_scheduler, False, epoch, use_cuda)
 
     if use_tb:
         logger.add_scalar(log_dir + '/train-loss', t_loss, epoch)
@@ -161,18 +160,21 @@ def execute_graph(model, loader, optimizer, scheduler, epoch, use_cuda):
     return v_loss
 
 
-# Simple model for testing
-model = SimpleFeatureEncoderNet().type(dtype)
+# Simple model for MNISTC testing
+encoder = MNIST_Encoder(28 * 28, 64).type(dtype)
+mi_estimator = MiEstimator(64, 64, 128).type(dtype)
 
-if args.multi_gpu:
-    model = torch.nn.DataParallel(model, device_ids=[4, 5, 6, 7])
-    print('Multi gpu')
+E_optim = optim.Adam(encoder.parameters(), lr=1e-3)
+MI_optim = optim.Adam(mi_estimator.parameters(), lr=1e-3)
 
-# init?
+# Beta schedular
+beta_start_value = 1e-3
+beta_end_value = 1.0
+beta_n_iterations = 100000
+beta_start_iteration = 50000
 
-base_optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.decay_lr)
-optimizer = LARS(optimizer=base_optimizer, eps=1e-8, trust_coef=0.001)
-scheduler = ExponentialLR(optimizer, gamma=args.decay_lr)
+beta_scheduler = ExponentialScheduler(start_value=beta_start_value, end_value=beta_end_value,
+                                      n_iterations=beta_n_iterations, start_iteration=beta_start_iteration)
 
 
 # Main training loop
@@ -182,10 +184,9 @@ best_loss = np.inf
 if args.load_model is not None:
     if os.path.isfile(args.load_model):
         checkpoint = torch.load(args.load_model)
-        model.load_state_dict(checkpoint['model'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        base_optimizer.load_state_dict(checkpoint['base_optimizer'])
-        scheduler.load_state_dict(checkpoint['scheduler'])
+        encoder.load_state_dict(checkpoint['encoder'])
+        E_optim.load_state_dict(checkpoint['E_optim'])
+        MI_optim.load_state_dict(checkpoint['MI_optim'])
         best_loss = checkpoint['val_loss']
         epoch = checkpoint['epoch']
         print('Loading model: {}. Resuming from epoch: {}'.format(args.load_model, epoch))
@@ -193,17 +194,16 @@ if args.load_model is not None:
         print('Model: {} not found'.format(args.load_model))
 
 for epoch in range(args.epochs):
-    v_loss = execute_graph(model, loader, optimizer, scheduler, epoch, use_cuda)
+    v_loss = execute_graph(encoder, mi_estimator, loader, E_optim, MI_optim, beta_scheduler, epoch, use_cuda)
 
     if v_loss < best_loss:
         best_loss = v_loss
         print('Writing model checkpoint')
         state = {
             'epoch': epoch,
-            'model': model.state_dict(),
-            'optimizer': optimizer.state_dict(),
-            'base_optimizer': base_optimizer.state_dict(),
-            'scheduler': scheduler.state_dict(),
+            'encoder': encoder.state_dict(),
+            'E_optim': E_optim.state_dict(),
+            'MI_optim': MI_optim.state_dict(),
             'val_loss': v_loss
         }
         t = time.localtime()
