@@ -36,6 +36,8 @@ parser.add_argument('--epochs', type=int, default=150, metavar='N',
                     help='number of training epochs (default: 150)')
 parser.add_argument('--lr', type=float, default=1e-3,
                     help='learning rate (default: 1e-3')
+parser.add_argument("--decay-lr", default=1e-6, action="store", type=float,
+                    help='Learning rate decay (default: 1e-6')
 parser.add_argument('--log-dir', type=str, default='runs',
                     help='logging directory (default: runs)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
@@ -101,6 +103,8 @@ if args.dataset_name == 'CIFAR10C':
 def train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, is_train, epoch, use_cuda):
 
     data_loader = loader.train_loader if is_train else loader.test_loader
+
+    beta = 1e-3
 
     if is_train:
         encoder.train()
