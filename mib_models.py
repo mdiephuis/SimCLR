@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 
 class MiEstimator(nn.Module):
-    def __init__(self, size1, size2, d):
+    def __init__(self, size1, size2, ):
         super(MiEstimator, self).__init__()
         self.size1 = size1
         self.size2 = size2
@@ -51,3 +51,5 @@ class MNIST_Encoder(nn.Module):
         sigma = F.softplus(sigma) + 1e-7
 
         return Independent(Normal(loc=mu, scale=sigma), 1)
+
+

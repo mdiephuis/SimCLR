@@ -22,8 +22,8 @@ parser = argparse.ArgumentParser(description='MIB')
 
 parser.add_argument('--uid', type=str, default='MIB',
                     help='Staging identifier (default: MIB)')
-parser.add_argument('--dataset-name', type=str, default='MNISTC',
-                    help='Name of dataset (default: MNISTC')
+parser.add_argument('--dataset-name', type=str, default='CIFAR10C',
+                    help='Name of dataset (default: CIFAR10C')
 parser.add_argument('--data-dir', type=str, default='data',
                     help='Path to dataset (default: data')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N',
@@ -88,14 +88,9 @@ if args.dataset_name == 'CIFAR10C':
     test_transforms = cifar_test_transforms()
     target_transforms = None
 
-if args.dataset_name == 'MNISTC':
-    train_transforms = mnist_train_transforms()
-    test_transforms = mnist_test_transforms()
-    target_transforms = None
-
-loader = Loader(args.dataset_name, args.data_dir, True, args.batch_size, train_transforms, test_transforms, target_transforms, use_cuda)
-train_loader = loader.train_loader
-test_loader = loader.test_loader
+    loader = Loader(args.dataset_name, args.data_dir, True, args.batch_size, train_transforms, test_transforms, target_transforms, use_cuda)
+    train_loader = loader.train_loader
+    test_loader = loader.test_loader
 
 
 # train validate
@@ -124,9 +119,9 @@ def train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, beta_schedu
         xi = xi.cuda() if use_cuda else xi
         xj = xj.cuda() if use_cuda else xj
 
-        # Encoder forward
-        p_xi_vi = encoder(xi)
-        p_xj_vj = encoder(xj)
+        # Encoder forward z:
+        _, p_xi_vi = encoder(xi)
+        _, p_xj_vj = encoder(xj)
 
         # Sample
         zi = p_xi_vi.rsample()
@@ -179,9 +174,9 @@ def execute_graph(encoder, mi_estimator, loader, E_optim, MI_optim, beta_schedul
     return v_loss
 
 
-# Simple model for MNISTC testing
-encoder = MNIST_Encoder(28 * 28, 64).type(dtype)
-mi_estimator = MiEstimator(64, 64, 128).type(dtype)
+# CIFAR 10 Encoder
+encoder = resnet50_cifar(num_features=args.feature_size, reparam=True).type(dtype)
+mi_estimator = MiEstimator(128, 128, 256).type(dtype)
 
 E_optim = optim.Adam(encoder.parameters(), lr=1e-3)
 MI_optim = optim.Adam(mi_estimator.parameters(), lr=1e-3)
