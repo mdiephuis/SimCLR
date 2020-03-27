@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.hub import load_state_dict_from_url
 import torch.nn.functional as F
+from torch.distributions import Normal, Independent
 
 
 __all__ = ['ResNet', 'resnet18', 'resnet50', 'resnet50_cifar', 'resnet18_cifar', 'SimpleNet']
@@ -263,11 +264,13 @@ class BasicBlock_CIFAR(nn.Module):
 
 class ResNet_CIFAR(nn.Module):
 
-    def __init__(self, block, layers, num_features=128):
+    def __init__(self, block, layers, num_features=128, reparam=False):
         super(ResNet_CIFAR, self).__init__()
         self.in_planes = 64
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
+        self.num_features = num_features
+        self.reparam = reparam
 
         self.layer_block = nn.Sequential(
             self._make_layer(block, 64, layers[0], stride=1),
@@ -307,7 +310,12 @@ class ResNet_CIFAR(nn.Module):
         # Learning output
         z_out = self.learning_head(h_out)
 
-        return F.normalize(h_out, dim=-1), F.normalize(z_out, dim=-1)
+        if self.reparam:
+            mu, sigma = z_out[:, :self.num_features // 2], z_out[:, self.num_features // 2:]
+            sigma = F.softplus(sigma) + 1e-7
+            return F.normalize(h_out, dim=-1), Independent(Normal(loc=mu, scale=sigma), 1)
+        else:
+            return F.normalize(h_out, dim=-1), F.normalize(z_out, dim=-1)
 
 
 def _resnet(arch, block, layers, pretrained, progress, **kwargs):
@@ -341,12 +349,12 @@ def resnet50(pretrained=False, progress=True, **kwargs):
                    **kwargs)
 
 
-def resnet50_cifar(num_features=128):
-    return ResNet_CIFAR(Bottleneck_CIFAR, [3, 4, 6, 3], num_features)
+def resnet50_cifar(num_features=128, reparam=False):
+    return ResNet_CIFAR(Bottleneck_CIFAR, [3, 4, 6, 3], num_features, reparam)
 
 
-def resnet18_cifar(num_features=128):
-    return ResNet_CIFAR(BasicBlock_CIFAR, [2, 2, 2, 2], num_features)
+def resnet18_cifar(num_features=128, reparam=False):
+    return ResNet_CIFAR(BasicBlock_CIFAR, [2, 2, 2, 2], num_features, reparam)
 
 
 class SimpleNet(nn.Module):

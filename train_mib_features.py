@@ -1,6 +1,8 @@
 import argparse
 import torch
 import torch.optim as optim
+from torch.optim.lr_scheduler import ExponentialLR
+
 import torch.distributions as D
 from torchlars import LARS
 import numpy as np
@@ -10,7 +12,7 @@ from tqdm import tqdm
 import os
 import time
 
-from simple_models import *
+from mib_models import *
 from models import *
 from utils import *
 from data import *
@@ -26,8 +28,10 @@ parser.add_argument('--dataset-name', type=str, default='CIFAR10C',
                     help='Name of dataset (default: CIFAR10C')
 parser.add_argument('--data-dir', type=str, default='data',
                     help='Path to dataset (default: data')
-parser.add_argument('--batch-size', type=int, default=64, metavar='N',
+parser.add_argument('--batch-size', type=int, default=32, metavar='N',
                     help='input training batch-size')
+parser.add_argument('--feature-size', type=int, default=256,
+                    help='Feature output size (default: 256')
 parser.add_argument('--epochs', type=int, default=150, metavar='N',
                     help='number of training epochs (default: 150)')
 parser.add_argument('--lr', type=float, default=1e-3,
@@ -94,7 +98,7 @@ if args.dataset_name == 'CIFAR10C':
 
 
 # train validate
-def train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, beta_scheduler, is_train, epoch, use_cuda):
+def train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, is_train, epoch, use_cuda):
 
     data_loader = loader.train_loader if is_train else loader.test_loader
 
@@ -113,8 +117,6 @@ def train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, beta_schedu
 
     tqdm_bar = tqdm(data_loader)
     for i, (xi, xj, _) in enumerate(tqdm_bar):
-
-        beta = beta_scheduler(i)
 
         xi = xi.cuda() if use_cuda else xi
         xj = xj.cuda() if use_cuda else xj
@@ -155,9 +157,11 @@ def train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, beta_schedu
     return total_loss / (len(data_loader.dataset))
 
 
-def execute_graph(encoder, mi_estimator, loader, E_optim, MI_optim, beta_scheduler, epoch, use_cuda):
-    t_loss = train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, beta_scheduler, True, epoch, use_cuda)
-    v_loss = train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, beta_scheduler, False, epoch, use_cuda)
+def execute_graph(encoder, mi_estimator, loader, E_optim, MI_optim, scheduler, epoch, use_cuda):
+    t_loss = train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, True, epoch, use_cuda)
+    v_loss = train_validate(encoder, mi_estimator, loader, E_optim, MI_optim, False, epoch, use_cuda)
+
+    scheduler.step(v_loss)
 
     if use_tb:
         logger.add_scalar(log_dir + '/train-loss', t_loss, epoch)
@@ -167,9 +171,6 @@ def execute_graph(encoder, mi_estimator, loader, E_optim, MI_optim, beta_schedul
         # Visdom: update training and validation loss plots
         vis.add_scalar(t_loss, epoch, 'Training loss', idtag='train')
         vis.add_scalar(v_loss, epoch, 'Validation loss', idtag='valid')
-
-    # print('Epoch: {} Train loss {}'.format(epoch, t_loss))
-    # print('Epoch: {} Valid loss {}'.format(epoch, v_loss))
 
     return v_loss
 
@@ -181,15 +182,7 @@ mi_estimator = MiEstimator(128, 128, 256).type(dtype)
 E_optim = optim.Adam(encoder.parameters(), lr=1e-3)
 MI_optim = optim.Adam(mi_estimator.parameters(), lr=1e-3)
 
-# Beta scheduler
-beta_start_value = 1e-3
-beta_end_value = 1.0
-beta_n_iterations = 100000
-beta_start_iteration = 50000
-
-beta_scheduler = ExponentialScheduler(start_value=beta_start_value, end_value=beta_end_value,
-                                      n_iterations=beta_n_iterations, start_iteration=beta_start_iteration)
-
+scheduler = ExponentialLR(E_optim, gamma=args.decay_lr)
 
 # Main training loop
 best_loss = np.inf
@@ -201,6 +194,7 @@ if args.load_model is not None:
         encoder.load_state_dict(checkpoint['encoder'])
         E_optim.load_state_dict(checkpoint['E_optim'])
         MI_optim.load_state_dict(checkpoint['MI_optim'])
+        scheduler.load_state_dict(checkpoint['scheduler'])
         best_loss = checkpoint['val_loss']
         epoch = checkpoint['epoch']
         print('Loading model: {}. Resuming from epoch: {}'.format(args.load_model, epoch))
@@ -208,7 +202,7 @@ if args.load_model is not None:
         print('Model: {} not found'.format(args.load_model))
 
 for epoch in range(args.epochs):
-    v_loss = execute_graph(encoder, mi_estimator, loader, E_optim, MI_optim, beta_scheduler, epoch, use_cuda)
+    v_loss = execute_graph(encoder, mi_estimator, loader, E_optim, MI_optim, scheduler, epoch, use_cuda)
 
     if v_loss < best_loss:
         best_loss = v_loss
@@ -218,6 +212,7 @@ for epoch in range(args.epochs):
             'encoder': encoder.state_dict(),
             'E_optim': E_optim.state_dict(),
             'MI_optim': MI_optim.state_dict(),
+            'scheduler': scheduler.state_dict(),
             'val_loss': v_loss
         }
         t = time.localtime()

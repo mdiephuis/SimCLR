@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 
 class MiEstimator(nn.Module):
-    def __init__(self, size1, size2, ):
+    def __init__(self, size1, size2, d):
         super(MiEstimator, self).__init__()
         self.size1 = size1
         self.size2 = size2
