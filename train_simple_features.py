@@ -16,6 +16,7 @@ from utils import *
 from data import *
 from loss import *
 from scheduler import *
+from visdom_grapher import VisdomGrapher
 
 parser = argparse.ArgumentParser(description='MIB')
 
@@ -39,6 +40,11 @@ parser.add_argument('--load-model', type=str, default=None,
                     help='Load model to resume training for (default None)')
 parser.add_argument('--device-id', type=int, default=0,
                     help='GPU device id (default: 0')
+# Visdom
+parser.add_argument('--visdom-url', type=str, default=None,
+                    help='visdom url, needs http, e.g. http://localhost (default: None)')
+parser.add_argument('--visdom-port', type=int, default=8097,
+                    help='visdom server port (default: 8097')
 
 args = parser.parse_args()
 
@@ -54,7 +60,8 @@ else:
     dtype = torch.FloatTensor
     device = torch.device("cpu")
 
-# Setup tensorboard
+# Setup tensorboard and visdom
+use_visdom = args.visdom_url is not None
 use_tb = args.log_dir is not None
 log_dir = args.log_dir
 
@@ -68,6 +75,11 @@ if not os.path.exists('runs'):
 # Logger
 if use_tb:
     logger = SummaryWriter(comment='_' + args.uid)
+
+# Visdom init
+if use_visdom:
+    vis = VisdomGrapher(args.uid + '_' + args.dataset_name, args.visdom_url, args.visdom_port)
+
 
 if args.dataset_name == 'CIFAR10C':
     in_channels = 3
@@ -154,6 +166,11 @@ def execute_graph(encoder, mi_estimator, loader, E_optim, MI_optim, beta_schedul
         logger.add_scalar(log_dir + '/train-loss', t_loss, epoch)
         logger.add_scalar(log_dir + '/valid-loss', v_loss, epoch)
 
+    if use_visdom:
+        # Visdom: update training and validation loss plots
+        vis.add_scalar(t_loss, epoch, 'Training loss', idtag='train')
+        vis.add_scalar(v_loss, epoch, 'Validation loss', idtag='valid')
+
     # print('Epoch: {} Train loss {}'.format(epoch, t_loss))
     # print('Epoch: {} Valid loss {}'.format(epoch, v_loss))
 
@@ -167,7 +184,7 @@ mi_estimator = MiEstimator(64, 64, 128).type(dtype)
 E_optim = optim.Adam(encoder.parameters(), lr=1e-3)
 MI_optim = optim.Adam(mi_estimator.parameters(), lr=1e-3)
 
-# Beta schedular
+# Beta scheduler
 beta_start_value = 1e-3
 beta_end_value = 1.0
 beta_n_iterations = 100000
