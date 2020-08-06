@@ -2,7 +2,6 @@ import argparse
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import ExponentialLR
-from torchlars import LARS
 import numpy as np
 
 from tensorboardX import SummaryWriter
@@ -42,8 +41,6 @@ parser.add_argument('--log-dir', type=str, default='runs',
                     help='logging directory (default: runs)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables cuda (default: False')
-parser.add_argument('--multi-gpu', action='store_true', default=False,
-                    help='disables multi-gpu (default: False')
 parser.add_argument('--load-model', type=str, default=None,
                     help='Load model to resume training for (default None)')
 parser.add_argument('--device-id', type=int, default=0,
@@ -151,14 +148,7 @@ def execute_graph(model, loader, optimizer, scheduler, epoch, use_cuda):
 
 model = resnet50_cifar(args.feature_size).type(dtype)
 
-if args.multi_gpu:
-    model = torch.nn.DataParallel(model, device_ids=[4, 5, 6, 7])
-    print('Multi gpu')
-
-# init?
-
-base_optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.decay_lr)
-optimizer = LARS(optimizer=base_optimizer, eps=1e-8, trust_coef=0.001)
+optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.decay_lr)
 scheduler = ExponentialLR(optimizer, gamma=args.decay_lr)
 
 
@@ -171,7 +161,6 @@ if args.load_model is not None:
         checkpoint = torch.load(args.load_model)
         model.load_state_dict(checkpoint['model'])
         optimizer.load_state_dict(checkpoint['optimizer'])
-        base_optimizer.load_state_dict(checkpoint['base_optimizer'])
         scheduler.load_state_dict(checkpoint['scheduler'])
         best_loss = checkpoint['val_loss']
         epoch = checkpoint['epoch']
@@ -189,7 +178,6 @@ for epoch in range(args.epochs):
             'epoch': epoch,
             'model': model.state_dict(),
             'optimizer': optimizer.state_dict(),
-            'base_optimizer': base_optimizer.state_dict(),
             'scheduler': scheduler.state_dict(),
             'val_loss': v_loss
         }
