@@ -45,6 +45,14 @@ parser.add_argument('--load-model', type=str, default=None,
                     help='Load model to resume training for (default None)')
 parser.add_argument('--device-id', type=int, default=0,
                     help='GPU device id (default: 0')
+# distributed
+parser.add_argument('--nodes', default=1, type=int)
+
+parser.add_argument('--gpus', default=1, type=int,
+                    help='number of gpus per node')
+parser.add_argument('--dist_url', default='env://',
+                    help='url used to set up distributed training')
+
 
 args = parser.parse_args()
 
