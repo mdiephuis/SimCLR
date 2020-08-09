@@ -56,44 +56,6 @@ parser.add_argument('--dist_url', default='env://',
 
 args = parser.parse_args()
 
-# Set cuda
-use_cuda = not args.no_cuda and torch.cuda.is_available()
-
-if use_cuda:
-    dtype = torch.cuda.FloatTensor
-    device = torch.device("cuda")
-    torch.cuda.set_device(args.device_id)
-    print('GPU')
-else:
-    dtype = torch.FloatTensor
-    device = torch.device("cpu")
-
-# Setup tensorboard
-use_tb = args.log_dir is not None
-log_dir = args.log_dir
-
-# Setup asset directories
-if not os.path.exists('models'):
-    os.makedirs('models')
-
-if not os.path.exists('runs'):
-    os.makedirs('runs')
-
-# Logger
-if use_tb:
-    logger = SummaryWriter(comment='_' + args.uid + '_' + args.dataset_name)
-
-if args.dataset_name == 'CIFAR10C':
-    in_channels = 3
-    # Get train and test loaders for dataset
-    train_transforms = cifar_train_transforms()
-    test_transforms = cifar_test_transforms()
-    target_transforms = None
-
-    loader = Loader(args.dataset_name, args.data_dir, True, args.batch_size, train_transforms, test_transforms, target_transforms, use_cuda)
-    train_loader = loader.train_loader
-    test_loader = loader.test_loader
-
 
 # train validate
 def train_validate(model, loader, optimizer, is_train, epoch, use_cuda):
@@ -153,50 +115,91 @@ def execute_graph(model, loader, optimizer, scheduler, epoch, use_cuda):
 
     return v_loss
 
+def run(rank, args):
+    # Set cuda
+    use_cuda = not args.no_cuda and torch.cuda.is_available()
 
-model = resnet50_cifar(args.feature_size).type(dtype)
-
-optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.decay_lr)
-scheduler = ExponentialLR(optimizer, gamma=args.decay_lr)
-
-
-# Main training loop
-best_loss = np.inf
-
-# Resume training
-if args.load_model is not None:
-    if os.path.isfile(args.load_model):
-        checkpoint = torch.load(args.load_model)
-        model.load_state_dict(checkpoint['model'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        scheduler.load_state_dict(checkpoint['scheduler'])
-        best_loss = checkpoint['val_loss']
-        epoch = checkpoint['epoch']
-        print('Loading model: {}. Resuming from epoch: {}'.format(args.load_model, epoch))
+    if use_cuda:
+        dtype = torch.cuda.FloatTensor
+        device = torch.device("cuda")
+        torch.cuda.set_device(args.device_id)
+        print('GPU')
     else:
-        print('Model: {} not found'.format(args.load_model))
+        dtype = torch.FloatTensor
+        device = torch.device("cpu")
 
-for epoch in range(args.epochs):
-    v_loss = execute_graph(model, loader, optimizer, scheduler, epoch, use_cuda)
+    # Setup tensorboard
+    use_tb = args.log_dir is not None
+    log_dir = args.log_dir
 
-    if v_loss < best_loss:
-        best_loss = v_loss
-        print('Writing model checkpoint')
-        state = {
-            'epoch': epoch,
-            'model': model.state_dict(),
-            'optimizer': optimizer.state_dict(),
-            'scheduler': scheduler.state_dict(),
-            'val_loss': v_loss
-        }
-        t = time.localtime()
-        timestamp = time.strftime('%b-%d-%Y_%H%M', t)
-        file_name = 'models/{}_{}_{}_{:04.4f}.pt'.format(timestamp, args.uid, epoch, v_loss)
+    # Setup asset directories
+    if not os.path.exists('models'):
+        os.makedirs('models')
 
-        torch.save(state, file_name)
+    if not os.path.exists('runs'):
+        os.makedirs('runs')
+
+    # Logger
+    if use_tb:
+        logger = SummaryWriter(comment='_' + args.uid + '_' + args.dataset_name)
+
+    if args.dataset_name == 'CIFAR10C':
+        in_channels = 3
+        # Get train and test loaders for dataset
+        train_transforms = cifar_train_transforms()
+        test_transforms = cifar_test_transforms()
+        target_transforms = None
+
+        loader = Loader(args.dataset_name, args.data_dir, True, args.batch_size, train_transforms, test_transforms, target_transforms, use_cuda)
+        train_loader = loader.train_loader
+        test_loader = loader.test_loader
 
 
-# TensorboardX logger
-logger.close()
+    model = resnet50_cifar(args.feature_size).type(dtype)
 
-# save model / restart training
+    optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.decay_lr)
+    scheduler = ExponentialLR(optimizer, gamma=args.decay_lr)
+
+
+    # Main training loop
+    best_loss = np.inf
+
+    # Resume training
+    if args.load_model is not None:
+        if os.path.isfile(args.load_model):
+            checkpoint = torch.load(args.load_model)
+            model.load_state_dict(checkpoint['model'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            scheduler.load_state_dict(checkpoint['scheduler'])
+            best_loss = checkpoint['val_loss']
+            epoch = checkpoint['epoch']
+            print('Loading model: {}. Resuming from epoch: {}'.format(args.load_model, epoch))
+        else:
+            print('Model: {} not found'.format(args.load_model))
+
+    for epoch in range(args.epochs):
+        v_loss = execute_graph(model, loader, optimizer, scheduler, epoch, use_cuda)
+
+        if v_loss < best_loss:
+            best_loss = v_loss
+            print('Writing model checkpoint')
+            state = {
+                'epoch': epoch,
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'scheduler': scheduler.state_dict(),
+                'val_loss': v_loss
+            }
+            t = time.localtime()
+            timestamp = time.strftime('%b-%d-%Y_%H%M', t)
+            file_name = 'models/{}_{}_{}_{:04.4f}.pt'.format(timestamp, args.uid, epoch, v_loss)
+
+            torch.save(state, file_name)
+
+    # TensorboardX logger
+    if logger is not None:
+        logger.close()
+
+
+if __name__ == "__main__":
+    run(rank=0, args)

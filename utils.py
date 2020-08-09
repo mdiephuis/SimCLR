@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import torch.distributed as dist
+import os
 
 
 def type_tdouble(use_cuda=False):
@@ -24,3 +26,8 @@ def init_weights(module):
             nn.init.constant_(m.bias, 0)
 
 
+def init_process(rank, size, backend='gloo'):
+    """ Initialize the distributed environment. """
+    os.environ['MASTER_ADDR'] = '127.0.0.1'
+    os.environ['MASTER_PORT'] = '29300'
+    dist.init_process_group(backend, rank=rank, world_size=size)
