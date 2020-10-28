@@ -26,6 +26,10 @@ def cifar_train_transforms():
 
 def cifar_test_transforms():
     all_transforms = transforms.Compose([
+        transforms.RandomResizedCrop(32),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomApply([transforms.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
+        transforms.RandomGrayscale(p=0.2),
         transforms.ToTensor()
     ])
     return all_transforms
