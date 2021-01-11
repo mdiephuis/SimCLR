@@ -5,8 +5,7 @@ import torch.nn.functional as F
 from torch.distributions import Normal, Independent
 
 
-__all__ = ['ResNet', 'resnet18', 'resnet50', 'resnet50_cifar', 'resnet18_cifar', 'SimpleNet',
-           'SimpleFeatureNet', 'SimpleFeatureEncoderNet', 'MiEstimator']
+__all__ = ['resnet50_cifar', 'resnet18_cifar', 'SimpleNet']
 
 
 model_urls = {
