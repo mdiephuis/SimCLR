@@ -35,7 +35,7 @@ parser.add_argument('--lr', type=float, default=1e-3,
                     help='learning rate (default: 1e-3')
 parser.add_argument("--decay-lr", default=1e-6, action="store", type=float,
                     help='Learning rate decay (default: 1e-6')
-parser.add_argument('--log-dir', type=str, default='runs',
+parser.add_argument('--log-dir', type=str, default='runs2',
                     help='logging directory (default: runs)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables cuda (default: False')

@@ -1,5 +1,6 @@
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, transforms
+import numpy as np
 
 from PIL import ImageFilter
 from PIL import Image
