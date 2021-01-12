@@ -134,7 +134,7 @@ def execute_graph(model, loader, optimizer, scheduler, epoch, use_cuda):
     t_loss = train_validate(model, loader, optimizer, True, epoch, use_cuda)
     v_loss = train_validate(model, loader, optimizer, False, epoch, use_cuda)
 
-    scheduler.step()
+    scheduler.step(v_loss)
 
     if use_tb:
         logger.add_scalar(log_dir + '/train-loss', t_loss, epoch)
