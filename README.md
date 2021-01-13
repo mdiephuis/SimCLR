@@ -2,7 +2,7 @@
 Pytorch implementation of the paper
 [A Simple Framework for Contrastive Learning of Visual Representations](https://arxiv.org/abs/2002.05709)
 
-* ADAM optimizer + LARS
+* ADAM optimizer
 * ExponentialLR schedular. No warmup or other exotics
 * Batchsize of 256 via gradient accumulation
 
@@ -19,8 +19,7 @@ Pytorch implementation of the paper
 | Epochs | 100 | 200 | 
 | ------ |-----| ------| 
 | Paper | 83.9| 89.2 | 
-| This repo ADAM |85.8 | 86.14 |
-| This repo ADAM + LARS |87.55 | 87.7 |
+| This repo |87.49 | 88.16 |
 
 ## Run
 Train the feature extracting model (resnet). Note CIFAR10C inherits from datasets.CIFAR and provides the augmented image pairs. 
