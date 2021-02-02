@@ -4,7 +4,7 @@ appdirs==1.4.4
 astor==0.8.0
 Babel==2.8.0
 backcall==0.1.0
-bleach==1.5.0
+bleach==3.3.0
 certifi==2019.9.11
 cffi==1.14.0
 chardet==3.0.4
