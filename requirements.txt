@@ -81,7 +81,7 @@ progressbar==2.5
 progressbar2==3.47.0
 prometheus-client==0.7.1
 prompt-toolkit==2.0.9
-protobuf==3.9.1
+protobuf==3.15.0
 ptflops==0.6
 ptyprocess==0.6.0
 py==1.9.0
