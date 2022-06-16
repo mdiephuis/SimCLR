@@ -62,7 +62,7 @@ munch==2.5.0
 nbconvert==5.6.0
 nbformat==4.4.0
 networkx==2.3
-notebook==6.0.0
+notebook==6.4.12
 numpy==1.18.4
 numpydoc==1.1.0
 opencv-python==4.1.1.26
